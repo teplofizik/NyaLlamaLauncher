@@ -1,17 +1,34 @@
 using System.Diagnostics;
 using System.Net.Http;
-using System.Text.Json;
+using QwenLauncher.Core;
+using QwenLauncher.Core.Runners;
 
-namespace QwenLauncher;
+namespace QwenLauncher.UI;
 
 public sealed class MainForm : Form
 {
-    private readonly AppConfig _cfg;
-    private readonly LlamaServer _server = new();
+    private readonly AppConfig _config;
+    private readonly ServerProcess _server = new();
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(3) };
     private readonly System.Windows.Forms.Timer _healthTimer = new() { Interval = 3000 };
 
+    private LaunchProfile _current = null!;
+    private LaunchProfile? _running;
+    private bool _loading;
+
+    // выбор нейронки
+    private ComboBox _cmbProfiles = null!;
+    private Button _btnAddProfile = null!;
+    private Button _btnDupProfile = null!;
+    private Button _btnDelProfile = null!;
+    private SplitContainer _split = null!;
+    private Panel _settingsHost = null!;
+
+    // поля профиля
+    private TextBox _txtName = null!;
+    private ComboBox _cmbRunner = null!;
     private TextBox _txtServerExe = null!;
+    private TextBox _txtWorkDir = null!;
     private TextBox _txtModel = null!;
     private TextBox _txtMmproj = null!;
     private TextBox _txtTemplate = null!;
@@ -30,6 +47,7 @@ public sealed class MainForm : Form
     private CheckBox _chkReasoning = null!;
     private CheckBox _chkContextShift = null!;
 
+    // действия
     private Button _btnStart = null!;
     private Button _btnStop = null!;
     private Button _btnRestart = null!;
@@ -41,16 +59,18 @@ public sealed class MainForm : Form
 
     public MainForm()
     {
-        _cfg = AppConfig.Load();
+        _config = AppConfig.Load();
+        _current = _config.Find(_config.SelectedProfileId) ?? _config.Profiles[0];
 
         Text = "Qwen3.8 Launcher";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(820, 640);
-        Size = new Size(1000, 820);
+        MinimumSize = new Size(900, 680);
+        Size = new Size(1060, 860);
         Font = new Font("Segoe UI", 9f);
 
         BuildUi();
-        LoadConfigIntoUi();
+        RefreshProfileCombo(_current.Id);
+        LoadProfileIntoUi(_current);
 
         _server.Output += OnServerOutput;
         _server.Exited += OnServerExited;
@@ -58,52 +78,77 @@ public sealed class MainForm : Form
 
         Shown += (_, _) =>
         {
-            _split.SplitterDistance = 470;
-            StartPosToBottom();
+            _split.SplitterDistance = 480;
+            ScrollLogToBottom();
         };
 
         FormClosing += OnFormClosing;
+        UpdateButtons();
     }
-
-    private SplitContainer _split = null!;
 
     // ------------------------------------------------------------------ UI
 
     private void BuildUi()
     {
-        var toolbar = new Panel { Dock = DockStyle.Top, Height = 46, Padding = new Padding(8, 6, 8, 6) };
+        var toolbar = new TableLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 88,
+            ColumnCount = 1,
+            RowCount = 2,
+            Padding = new Padding(8, 6, 8, 6)
+        };
+        toolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+        toolbar.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
 
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Left, AutoSize = true, WrapContents = false };
+        // строка 1 — выбор нейронки
+        var row1 = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoSize = false };
+        _cmbProfiles = new ComboBox
+        {
+            Width = 280,
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            DisplayMember = "Name",
+            Margin = new Padding(0, 5, 6, 0)
+        };
+        _cmbProfiles.SelectedIndexChanged += (_, _) => OnProfileSelected();
 
+        _btnAddProfile = MakeButton("＋ Добавить", 110, (_, _) => AddProfile(), Color.FromArgb(60, 70, 110));
+        _btnDupProfile = MakeButton("⧉ Дублировать", 120, (_, _) => DuplicateProfile(), Color.FromArgb(60, 70, 110));
+        _btnDelProfile = MakeButton("🗑 Удалить", 100, (_, _) => DeleteProfile(), Color.FromArgb(120, 60, 60));
+
+        row1.Controls.AddRange(new Control[]
+        {
+            MakeInlineLabel("Нейронка:"), _cmbProfiles, _btnAddProfile, _btnDupProfile, _btnDelProfile
+        });
+
+        // строка 2 — действия
+        var row2 = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoSize = false };
         _btnStart = MakeButton("▶  Запустить", 120, (_, _) => StartServer(), Color.FromArgb(46, 125, 50));
         _btnStop = MakeButton("■  Остановить", 120, (_, _) => StopServer(), Color.FromArgb(150, 50, 50));
         _btnRestart = MakeButton("⟳  Перезапуск", 120, (_, _) => RestartServer(), Color.FromArgb(60, 70, 110));
         _btnOpenUi = MakeButton("🌐  Web UI", 100, (_, _) => OpenWebUi(), Color.FromArgb(60, 70, 110));
-        _btnCopy = MakeButton("⧉  Config opencode", 150, (_, _) => CopyOpencodeConfig(), Color.FromArgb(60, 70, 110));
-
-        _btnStop.Enabled = false;
-
-        buttons.Controls.AddRange(new Control[] { _btnStart, _btnStop, _btnRestart, _btnOpenUi, _btnCopy });
+        _btnCopy = MakeButton("⧉  Config opencode", 155, (_, _) => CopyOpencodeConfig(), Color.FromArgb(60, 70, 110));
 
         _lblStatus = new Label
         {
-            Dock = DockStyle.Right,
             AutoSize = true,
-            TextAlign = ContentAlignment.MiddleRight,
-            Padding = new Padding(0, 12, 6, 0),
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(14, 10, 6, 0),
             Font = new Font("Segoe UI", 10f, FontStyle.Bold),
             Text = "Сервер остановлен"
         };
 
-        toolbar.Controls.Add(buttons);
-        toolbar.Controls.Add(_lblStatus);
+        row2.Controls.AddRange(new Control[] { _btnStart, _btnStop, _btnRestart, _btnOpenUi, _btnCopy, _lblStatus });
+
+        toolbar.Controls.Add(row1, 0, 0);
+        toolbar.Controls.Add(row2, 0, 1);
 
         _split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterWidth = 6 };
 
-        var settingsHost = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
-        settingsHost.Controls.Add(BuildSettings());
+        _settingsHost = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+        _settingsHost.Controls.Add(BuildSettings());
 
-        _split.Panel1.Controls.Add(settingsHost);
+        _split.Panel1.Controls.Add(_settingsHost);
         _split.Panel2.Controls.Add(BuildLogPanel());
 
         Controls.Add(_split);
@@ -123,13 +168,25 @@ public sealed class MainForm : Form
         t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
         t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
+        _txtName = new TextBox();
+        _txtName.TextChanged += (_, _) => OnNameChanged();
+        AddRow(t, "Имя профиля", _txtName);
+
+        _cmbRunner = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(3, 4, 3, 4) };
+        foreach (var r in RunnerRegistry.All) _cmbRunner.Items.Add(r);
+        _cmbRunner.DisplayMember = "DisplayName";
+        _cmbRunner.SelectedIndexChanged += (_, _) => OnRunnerChanged();
+        AddRow(t, "Движок", _cmbRunner);
+
         _txtServerExe = new TextBox();
+        _txtWorkDir = new TextBox();
         _txtModel = new TextBox();
         _txtMmproj = new TextBox();
         _txtTemplate = new TextBox();
 
-        AddRow(t, "llama-server.exe", FilePicker(_txtServerExe, "Программа сервера (*.exe)|*.exe|Все файлы (*.*)|*.*"));
-        AddRow(t, "Модель (.gguf)", FilePicker(_txtModel, "Модель Qwen (*.gguf)|*.gguf|Все файлы (*.*)|*.*"));
+        AddRow(t, "Программа / сервер", FilePicker(_txtServerExe, "Программа (*.exe)|*.exe|Все файлы (*.*)|*.*"));
+        AddRow(t, "Рабочий каталог", FolderPicker(_txtWorkDir));
+        AddRow(t, "Модель (.gguf)", FilePicker(_txtModel, "Модель (*.gguf)|*.gguf|Все файлы (*.*)|*.*"));
         AddRow(t, "mmproj / vision (.gguf)", FilePicker(_txtMmproj, "Проектор (*.gguf)|*.gguf|Все файлы (*.*)|*.*"));
         AddRow(t, "Шаблон чата (.jinja)", FilePicker(_txtTemplate, "Шаблон (*.jinja)|*.jinja|Все файлы (*.*)|*.*"));
 
@@ -196,6 +253,13 @@ public sealed class MainForm : Form
         return host;
     }
 
+    private static Label MakeInlineLabel(string text) => new()
+    {
+        Text = text,
+        AutoSize = true,
+        Padding = new Padding(2, 10, 4, 0)
+    };
+
     private static Button MakeButton(string text, int width, EventHandler onClick, Color back)
     {
         var b = new Button
@@ -216,7 +280,7 @@ public sealed class MainForm : Form
     private static ComboBox CacheCombo()
     {
         var c = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown, Margin = new Padding(3, 4, 3, 4) };
-        c.Items.AddRange(new object[] { "bf16", "q8_0", "q4_0" });
+        c.Items.AddRange(new object[] { "bf16", "f16", "q8_0", "q4_0" });
         return c;
     }
 
@@ -295,51 +359,243 @@ public sealed class MainForm : Form
         return inner;
     }
 
-    // ------------------------------------------------------------- behavior
-
-    private void LoadConfigIntoUi()
+    private static Control FolderPicker(TextBox box)
     {
-        _txtServerExe.Text = _cfg.ServerExe;
-        _txtModel.Text = _cfg.ModelPath;
-        _txtMmproj.Text = _cfg.MmprojPath;
-        _txtTemplate.Text = _cfg.TemplatePath;
-        _txtAlias.Text = _cfg.Alias;
-        _txtHost.Text = _cfg.Host;
-        _txtPort.Text = _cfg.Port.ToString();
-        _txtCtx.Text = _cfg.ContextSize.ToString();
-        _cmbCacheK.Text = _cfg.CacheTypeK;
-        _cmbCacheV.Text = _cfg.CacheTypeV;
-        _txtNgl.Text = _cfg.GpuLayers;
-        _txtThreads.Text = _cfg.Threads;
-        _txtApiKey.Text = _cfg.ApiKey;
-        _txtExtra.Text = _cfg.ExtraArgs;
-        _chkFlash.Checked = _cfg.FlashAttn;
-        _chkWebUi.Checked = _cfg.WebUi;
-        _chkReasoning.Checked = _cfg.Reasoning;
-        _chkContextShift.Checked = _cfg.ContextShift;
+        var inner = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            ColumnCount = 2,
+            Margin = new Padding(0)
+        };
+        inner.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        inner.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
+
+        box.Dock = DockStyle.Fill;
+        box.Margin = new Padding(3, 4, 3, 4);
+
+        var btn = new Button { Text = "Обзор…", Dock = DockStyle.Fill, Margin = new Padding(3, 4, 3, 4) };
+        btn.Click += (_, _) =>
+        {
+            using var dlg = new FolderBrowserDialog();
+            try
+            {
+                if (Directory.Exists(box.Text)) dlg.SelectedPath = box.Text;
+            }
+            catch { /* ignore */ }
+            if (dlg.ShowDialog() == DialogResult.OK) box.Text = dlg.SelectedPath;
+        };
+
+        inner.Controls.Add(box, 0, 0);
+        inner.Controls.Add(btn, 1, 0);
+        return inner;
     }
 
-    private void ReadUiIntoConfig()
+    // --------------------------------------------------------- профили
+
+    private void RefreshProfileCombo(string? selectId = null)
     {
-        _cfg.ServerExe = _txtServerExe.Text.Trim();
-        _cfg.ModelPath = _txtModel.Text.Trim();
-        _cfg.MmprojPath = _txtMmproj.Text.Trim();
-        _cfg.TemplatePath = _txtTemplate.Text.Trim();
-        _cfg.Alias = _txtAlias.Text.Trim();
-        _cfg.Host = _txtHost.Text.Trim();
-        _cfg.Port = int.TryParse(_txtPort.Text.Trim(), out var p) ? p : 8001;
-        _cfg.ContextSize = int.TryParse(_txtCtx.Text.Trim(), out var c) ? c : 65536;
-        _cfg.CacheTypeK = _cmbCacheK.Text.Trim();
-        _cfg.CacheTypeV = _cmbCacheV.Text.Trim();
-        _cfg.GpuLayers = _txtNgl.Text.Trim();
-        _cfg.Threads = _txtThreads.Text.Trim();
-        _cfg.ApiKey = _txtApiKey.Text.Trim();
-        _cfg.ExtraArgs = _txtExtra.Text.Trim();
-        _cfg.FlashAttn = _chkFlash.Checked;
-        _cfg.WebUi = _chkWebUi.Checked;
-        _cfg.Reasoning = _chkReasoning.Checked;
-        _cfg.ContextShift = _chkContextShift.Checked;
+        _loading = true;
+        try
+        {
+            _cmbProfiles.Items.Clear();
+            foreach (var p in _config.Profiles) _cmbProfiles.Items.Add(p);
+            _cmbProfiles.DisplayMember = "Name";
+
+            var target = _config.Find(selectId ?? _current?.Id ?? _config.SelectedProfileId);
+            if (target is not null) _cmbProfiles.SelectedItem = target;
+            else if (_cmbProfiles.Items.Count > 0) _cmbProfiles.SelectedIndex = 0;
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
+
+    private void OnProfileSelected()
+    {
+        if (_loading) return;
+        if (_cmbProfiles.SelectedItem is not LaunchProfile p) return;
+        if (ReferenceEquals(p, _current)) return;
+
+        FlushUiIntoProfile();
+        _current = p;
+        _config.SelectedProfileId = p.Id;
+        LoadProfileIntoUi(p);
+        _config.Save();
+    }
+
+    private void LoadProfileIntoUi(LaunchProfile p)
+    {
+        _loading = true;
+        try
+        {
+            _txtName.Text = p.Name;
+            SelectRunner(p.Runner);
+            _txtServerExe.Text = p.ServerExe;
+            _txtWorkDir.Text = p.WorkingDir;
+            _txtModel.Text = p.ModelPath;
+            _txtMmproj.Text = p.MmprojPath;
+            _txtTemplate.Text = p.TemplatePath;
+            _txtAlias.Text = p.Alias;
+            _txtHost.Text = p.Host;
+            _txtPort.Text = p.Port.ToString();
+            _txtCtx.Text = p.ContextSize.ToString();
+            _cmbCacheK.Text = p.CacheTypeK;
+            _cmbCacheV.Text = p.CacheTypeV;
+            _txtNgl.Text = p.GpuLayers;
+            _txtThreads.Text = p.Threads;
+            _txtApiKey.Text = p.ApiKey;
+            _txtExtra.Text = p.ExtraArgs;
+            _chkFlash.Checked = p.FlashAttn;
+            _chkWebUi.Checked = p.WebUi;
+            _chkReasoning.Checked = p.Reasoning;
+            _chkContextShift.Checked = p.ContextShift;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void FlushUiIntoProfile()
+    {
+        if (_current is null) return;
+
+        _current.Name = string.IsNullOrWhiteSpace(_txtName.Text) ? _current.Name : _txtName.Text.Trim();
+        if (_cmbRunner.SelectedItem is IModelRunner r) _current.Runner = r.Id;
+        _current.ServerExe = _txtServerExe.Text.Trim();
+        _current.WorkingDir = _txtWorkDir.Text.Trim();
+        _current.ModelPath = _txtModel.Text.Trim();
+        _current.MmprojPath = _txtMmproj.Text.Trim();
+        _current.TemplatePath = _txtTemplate.Text.Trim();
+        _current.Alias = _txtAlias.Text.Trim();
+        _current.Host = _txtHost.Text.Trim();
+        _current.Port = int.TryParse(_txtPort.Text.Trim(), out var p) ? p : 8001;
+        _current.ContextSize = int.TryParse(_txtCtx.Text.Trim(), out var c) ? c : 65536;
+        _current.CacheTypeK = _cmbCacheK.Text.Trim();
+        _current.CacheTypeV = _cmbCacheV.Text.Trim();
+        _current.GpuLayers = _txtNgl.Text.Trim();
+        _current.Threads = _txtThreads.Text.Trim();
+        _current.ApiKey = _txtApiKey.Text.Trim();
+        _current.ExtraArgs = _txtExtra.Text.Trim();
+        _current.FlashAttn = _chkFlash.Checked;
+        _current.WebUi = _chkWebUi.Checked;
+        _current.Reasoning = _chkReasoning.Checked;
+        _current.ContextShift = _chkContextShift.Checked;
+    }
+
+    private void OnNameChanged()
+    {
+        if (_loading || _current is null) return;
+        _current.Name = string.IsNullOrWhiteSpace(_txtName.Text) ? "Новый профиль" : _txtName.Text.Trim();
+        RefreshProfileCombo(_current.Id);
+        _config.Save();
+    }
+
+    private void OnRunnerChanged()
+    {
+        if (_loading || _current is null) return;
+        if (_cmbRunner.SelectedItem is IModelRunner r)
+        {
+            _current.Runner = r.Id;
+            _config.Save();
+        }
+    }
+
+    private void SelectRunner(string? runnerId)
+    {
+        var runner = RunnerRegistry.Get(runnerId);
+        var idx = _cmbRunner.Items.IndexOf(runner);
+        if (idx >= 0) _cmbRunner.SelectedIndex = idx;
+    }
+
+    private void AddProfile()
+    {
+        FlushUiIntoProfile();
+
+        var p = new LaunchProfile
+        {
+            Name = UniqueName("Новый профиль"),
+            Runner = _current.Runner,
+            ServerExe = _current.ServerExe,
+            Host = "127.0.0.1",
+            Port = NextFreePort(),
+            ContextSize = 32768,
+            CacheTypeK = "f16",
+            CacheTypeV = "f16",
+            FlashAttn = true,
+            WebUi = true,
+            Reasoning = true,
+            ContextShift = true,
+            ApiKey = ""
+        };
+
+        _config.Profiles.Add(p);
+        _config.SelectedProfileId = p.Id;
+        _current = p;
+        RefreshProfileCombo(p.Id);
+        LoadProfileIntoUi(p);
+        _config.Save();
+        UpdateButtons();
+    }
+
+    private void DuplicateProfile()
+    {
+        FlushUiIntoProfile();
+
+        var p = _current.Clone();
+        p.Name = UniqueName(_current.Name + " (копия)");
+        _config.Profiles.Add(p);
+        _config.SelectedProfileId = p.Id;
+        _current = p;
+        RefreshProfileCombo(p.Id);
+        LoadProfileIntoUi(p);
+        _config.Save();
+        UpdateButtons();
+    }
+
+    private void DeleteProfile()
+    {
+        if (_config.Profiles.Count <= 1)
+        {
+            MessageBox.Show(this, "Нельзя удалить единственный профиль.", "Qwen3.8 Launcher",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        var res = MessageBox.Show(this, $"Удалить профиль «{_current.Name}»?", "Qwen3.8 Launcher",
+            MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+        if (res != DialogResult.Yes) return;
+
+        _config.Profiles.Remove(_current);
+        _current = _config.Profiles[0];
+        _config.SelectedProfileId = _current.Id;
+        RefreshProfileCombo(_current.Id);
+        LoadProfileIntoUi(_current);
+        _config.Save();
+        UpdateButtons();
+    }
+
+    private string UniqueName(string baseName)
+    {
+        var name = baseName;
+        int i = 2;
+        while (_config.Profiles.Any(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)))
+            name = $"{baseName} {i++}";
+        return name;
+    }
+
+    private int NextFreePort()
+    {
+        int port = 8001;
+        while (_config.Profiles.Any(p => p.Port == port) || IsPortOpen("127.0.0.1", port))
+            port++;
+        return port;
+    }
+
+    // ------------------------------------------------------- запуск
 
     private void StartServer(bool quiet = false)
     {
@@ -349,38 +605,40 @@ public sealed class MainForm : Form
             return;
         }
 
-        ReadUiIntoConfig();
+        FlushUiIntoProfile();
+        _config.Save();
 
-        if (!File.Exists(_cfg.ServerExe))
+        var profile = _current;
+        var runner = RunnerRegistry.Get(profile.Runner);
+
+        var errors = runner.Validate(profile);
+        if (errors.Count > 0)
         {
-            MessageBox.Show(this, "Не найден llama-server.exe:\n" + _cfg.ServerExe, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, string.Join("\n", errors), "Ошибка запуска", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
         }
-        if (!File.Exists(_cfg.ModelPath))
-        {
-            MessageBox.Show(this, "Не найден файл модели:\n" + _cfg.ModelPath, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            return;
-        }
 
-        if (IsPortOpen(_cfg.Host, _cfg.Port))
+        if (IsPortOpen(profile.Host, profile.Port))
         {
             MessageBox.Show(this,
-                $"Порт {_cfg.Port} уже занят.\n\nВозможно, llama-server уже запущен (например, другим окном). " +
+                $"Порт {profile.Port} уже занят.\n\nВозможно, сервер уже запущен (например, другим окном). " +
                 "Закройте его или смените порт.",
                 "Порт занят", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
 
-        _cfg.Save();
-        _log.Clear();
+        var exe = runner.ResolveExecutable(profile);
+        var wd = runner.ResolveWorkingDirectory(profile);
+        var args = runner.BuildArguments(profile);
 
-        AppendLine("=== Запуск сервера ===");
-        AppendLine(LlamaServer.BuildCommandLine(_cfg));
+        _log.Clear();
+        AppendLine($"=== Запуск: {profile.Name} [{runner.DisplayName}] ===");
+        AppendLine(ArgTokenizer.JoinCommandLine(exe, args));
         AppendLine("");
 
         try
         {
-            _server.Start(_cfg);
+            _server.Start(exe, wd, args);
         }
         catch (Exception ex)
         {
@@ -390,8 +648,8 @@ public sealed class MainForm : Form
             return;
         }
 
-        _btnStart.Enabled = false;
-        _btnStop.Enabled = true;
+        _running = profile.Clone();
+        SetRunningUi(true);
         SetStatus("Загрузка модели…", Color.FromArgb(230, 160, 60));
         _healthTimer.Start();
     }
@@ -401,7 +659,8 @@ public sealed class MainForm : Form
         _healthTimer.Stop();
         if (_server.IsRunning) AppendLine("=== Остановка сервера ===");
         _server.Stop();
-        UpdateButtons();
+        _running = null;
+        SetRunningUi(false);
         SetStatus("Сервер остановлен", Color.FromArgb(150, 150, 150));
     }
 
@@ -425,7 +684,8 @@ public sealed class MainForm : Form
         BeginInvoke(() =>
         {
             _healthTimer.Stop();
-            UpdateButtons();
+            _running = null;
+            SetRunningUi(false);
             SetStatus("Сервер остановлен", Color.FromArgb(150, 150, 150));
             AppendLine("=== Процесс сервера завершён ===");
         });
@@ -440,23 +700,21 @@ public sealed class MainForm : Form
 
     private async void CheckHealth()
     {
-        if (!_server.IsRunning)
+        if (!_server.IsRunning || _running is null)
         {
             _healthTimer.Stop();
             return;
         }
 
-        var host = _cfg.Host;
-        if (host is "0.0.0.0" or "::" or "") host = "127.0.0.1";
-        var url = $"http://{host}:{_cfg.Port}/health";
+        var runner = RunnerRegistry.Get(_running.Runner);
 
         try
         {
-            using var resp = await _http.GetAsync(url);
+            using var resp = await _http.GetAsync(runner.HealthUrl(_running));
             var body = await resp.Content.ReadAsStringAsync();
             if ((int)resp.StatusCode == 200 && body.Contains("\"ok\""))
             {
-                SetStatus($"Готов  →  {BaseUrl()}", Color.FromArgb(90, 200, 90));
+                SetStatus($"Готов  →  {runner.BaseUrl(_running)}", Color.FromArgb(90, 200, 90));
             }
             else
             {
@@ -467,6 +725,21 @@ public sealed class MainForm : Form
         {
             SetStatus("Загрузка модели…", Color.FromArgb(230, 160, 60));
         }
+    }
+
+    private void SetRunningUi(bool running)
+    {
+        _btnStart.Enabled = !running;
+        _btnStop.Enabled = running;
+        _btnRestart.Enabled = running;
+
+        _cmbProfiles.Enabled = !running;
+        _btnAddProfile.Enabled = !running;
+        _btnDupProfile.Enabled = !running;
+        _btnDelProfile.Enabled = !running && _config.Profiles.Count > 1;
+        _settingsHost.Enabled = !running;
+        _btnOpenUi.Enabled = true;
+        _btnCopy.Enabled = true;
     }
 
     private static bool IsPortOpen(string host, int port)
@@ -484,18 +757,13 @@ public sealed class MainForm : Form
         }
     }
 
-    private string BaseUrl()
-    {
-        var host = _cfg.Host;
-        if (host is "0.0.0.0" or "::" or "") host = "127.0.0.1";
-        return $"http://{host}:{_cfg.Port}";
-    }
-
     private void OpenWebUi()
     {
+        var profile = _running ?? _current;
+        var runner = RunnerRegistry.Get(profile.Runner);
         try
         {
-            Process.Start(new ProcessStartInfo(BaseUrl()) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(runner.BaseUrl(profile)) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
@@ -505,32 +773,14 @@ public sealed class MainForm : Form
 
     private void CopyOpencodeConfig()
     {
-        ReadUiIntoConfig();
-        var host = _cfg.Host;
-        if (host is "0.0.0.0" or "::" or "") host = "127.0.0.1";
+        FlushUiIntoProfile();
+        _config.Save();
 
-        var snippet = new
-        {
-            provider = new Dictionary<string, object>
-            {
-                ["llama.cpp"] = new
-                {
-                    npm = "@ai-sdk/openai-compatible",
-                    name = "llama.cpp (local)",
-                    options = new { baseURL = $"http://{host}:{_cfg.Port}/v1", apiKey = _cfg.ApiKey },
-                    models = new Dictionary<string, object>
-                    {
-                        [_cfg.Alias] = new { name = _cfg.Alias + " (local)" }
-                    }
-                }
-            }
-        };
-
-        var json = JsonSerializer.Serialize(snippet, new JsonSerializerOptions { WriteIndented = true });
+        var json = OpencodeProvider.BuildSnippet(_current);
         try
         {
             Clipboard.SetText(json);
-            AppendLine("--- Конфиг для opencode.json скопирован в буфер обмена ---");
+            AppendLine("--- Конфиг opencode для профиля «" + _current.Name + "» скопирован в буфер ---");
             AppendLine(json);
         }
         catch (Exception ex)
@@ -554,6 +804,7 @@ public sealed class MainForm : Form
         _btnStart.Enabled = !running;
         _btnStop.Enabled = running;
         _btnRestart.Enabled = running;
+        _btnDelProfile.Enabled = !running && _config.Profiles.Count > 1;
     }
 
     private void SetStatus(string text, Color color)
@@ -582,14 +833,10 @@ public sealed class MainForm : Form
         _log.AppendText(line + Environment.NewLine);
         _log.SelectionColor = _log.ForeColor;
 
-        if (_chkAutoScroll.Checked)
-        {
-            _log.SelectionStart = _log.TextLength;
-            _log.ScrollToCaret();
-        }
+        if (_chkAutoScroll.Checked) ScrollLogToBottom();
     }
 
-    private void StartPosToBottom()
+    private void ScrollLogToBottom()
     {
         _log.SelectionStart = _log.TextLength;
         _log.ScrollToCaret();
@@ -608,8 +855,8 @@ public sealed class MainForm : Form
             }
         }
 
-        ReadUiIntoConfig();
-        _cfg.Save();
+        FlushUiIntoProfile();
+        _config.Save();
         _healthTimer.Stop();
         _server.Dispose();
         _http.Dispose();

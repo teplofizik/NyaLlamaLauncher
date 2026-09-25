@@ -1,0 +1,83 @@
+# ============================================================
+#  .NET / Visual Studio
+# ============================================================
+
+# Сборка
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+
+# Пакеты и восстановление
+packages/
+*.nupkg
+*.snupkg
+!**/packages/build/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.rsuser
+*.dbmdl
+*.dbproj.schemaview
+*.jfm
+*.pfx
+*.publishsettings
+Generated\ Files/
+
+# ReSharper / Rider
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+.idea/
+
+# Visual Studio Code (в проекте может быть полезен — при необходимости уберите)
+.vscode/
+
+# Результаты тестов и покрытия
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+*.VisualState.xml
+TestResult.xml
+coverage*.json
+coverage*.xml
+coverage*.info
+*.coverage
+*.coveragexml
+
+# Профилирование
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# NuGet
+*.nuspec.user
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Прочее
+*.log
+*.tlog
+*.cache
+*.tmp
+*.bak
+*.orig
+*.rej
+
+# ============================================================
+#  Qwen3.8 Launcher (проект)
+# ============================================================
+
+# Опубликованное приложение (создаётся `dotnet publish`) —
+# регенерируется командой, exe в git не нужен.
+/Launcher/
+
+# Локальный конфиг запуска содержит API-ключ — не коммитим.
+/Launcher/config.yaml

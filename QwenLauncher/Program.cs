@@ -1,3 +1,5 @@
+using QwenLauncher.UI;
+
 namespace QwenLauncher;
 
 internal static class Program
