@@ -1,6 +1,6 @@
-using QwenLauncher.UI;
+using NyaLlamaLauncher.UI;
 
-namespace QwenLauncher;
+namespace NyaLlamaLauncher;
 
 internal static class Program
 {

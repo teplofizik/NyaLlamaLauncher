@@ -1,4 +1,4 @@
-namespace QwenLauncher.Core.Runners;
+namespace NyaLlamaLauncher.Core.Runners;
 
 public sealed class LlamaCppRunner : IModelRunner
 {

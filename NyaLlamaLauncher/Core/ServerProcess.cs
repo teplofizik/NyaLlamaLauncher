@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 
-namespace QwenLauncher.Core;
+namespace NyaLlamaLauncher.Core;
 
 /// <summary>
 /// Управление процессом сервера: запуск, остановка, стриминг stdout/stderr.

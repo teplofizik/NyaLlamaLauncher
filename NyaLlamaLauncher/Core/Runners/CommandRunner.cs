@@ -1,4 +1,4 @@
-namespace QwenLauncher.Core.Runners;
+namespace NyaLlamaLauncher.Core.Runners;
 
 /// <summary>
 /// Запуск произвольного сервера командой. Аргументы берутся из ExtraArgs,

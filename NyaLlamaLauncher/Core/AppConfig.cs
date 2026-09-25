@@ -1,9 +1,9 @@
 using System.Text;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-using QwenLauncher.Core.Runners;
+using NyaLlamaLauncher.Core.Runners;
 
-namespace QwenLauncher.Core;
+namespace NyaLlamaLauncher.Core;
 
 /// <summary>
 /// Корневой конфиг приложения: набор профилей запуска + выбранный профиль.
@@ -14,7 +14,7 @@ public sealed class AppConfig
     public string SelectedProfileId { get; set; } = "";
 
     private const string Header =
-        "# Qwen3.8 Launcher — конфигурация запуска нейронок\n" +
+        "# NyaLlama Launcher — конфигурация запуска нейронок\n" +
         "#\n" +
         "# Каждый профиль в profiles — отдельная нейронка/вариация запуска.\n" +
         "# runner: движок запуска (сейчас доступен \"llama.cpp\").\n" +

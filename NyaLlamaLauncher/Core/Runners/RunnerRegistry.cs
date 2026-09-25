@@ -1,4 +1,4 @@
-namespace QwenLauncher.Core.Runners;
+namespace NyaLlamaLauncher.Core.Runners;
 
 /// <summary>
 /// Реестр доступных движков. Чтобы добавить новый тип нейронки — реализуйте

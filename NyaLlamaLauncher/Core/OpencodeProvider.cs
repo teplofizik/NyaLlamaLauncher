@@ -1,7 +1,7 @@
 using System.Text.Json;
-using QwenLauncher.Core.Runners;
+using NyaLlamaLauncher.Core.Runners;
 
-namespace QwenLauncher.Core;
+namespace NyaLlamaLauncher.Core;
 
 /// <summary>Формирует JSON-сниппет провайдера для opencode.json по профилю.</summary>
 public static class OpencodeProvider

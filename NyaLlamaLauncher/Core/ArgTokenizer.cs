@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace QwenLauncher.Core;
+namespace NyaLlamaLauncher.Core;
 
 public static class ArgTokenizer
 {

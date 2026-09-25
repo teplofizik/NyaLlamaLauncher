@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -6,13 +6,13 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>QwenLauncher</AssemblyName>
-    <RootNamespace>QwenLauncher</RootNamespace>
+    <AssemblyName>NyaLlamaLauncher</AssemblyName>
+    <RootNamespace>NyaLlamaLauncher</RootNamespace>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
     <Version>1.0.0</Version>
-    <AssemblyTitle>Qwen3.8 Launcher</AssemblyTitle>
-    <Product>Qwen3.8 Launcher</Product>
+    <AssemblyTitle>NyaLlama Launcher</AssemblyTitle>
+    <Product>NyaLlama Launcher</Product>
   </PropertyGroup>
 
   <ItemGroup>

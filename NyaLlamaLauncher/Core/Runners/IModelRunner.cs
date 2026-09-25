@@ -1,4 +1,4 @@
-namespace QwenLauncher.Core.Runners;
+namespace NyaLlamaLauncher.Core.Runners;
 
 /// <summary>
 /// Подключаемый движок запуска нейронки. Новый тип нейронки = новая

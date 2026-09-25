@@ -1,9 +1,9 @@
 using System.Diagnostics;
 using System.Net.Http;
-using QwenLauncher.Core;
-using QwenLauncher.Core.Runners;
+using NyaLlamaLauncher.Core;
+using NyaLlamaLauncher.Core.Runners;
 
-namespace QwenLauncher.UI;
+namespace NyaLlamaLauncher.UI;
 
 public sealed class MainForm : Form
 {
@@ -62,7 +62,7 @@ public sealed class MainForm : Form
         _config = AppConfig.Load();
         _current = _config.Find(_config.SelectedProfileId) ?? _config.Profiles[0];
 
-        Text = "Qwen3.8 Launcher";
+        Text = "NyaLlama Launcher";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(900, 680);
         Size = new Size(1060, 860);
@@ -560,12 +560,12 @@ public sealed class MainForm : Form
     {
         if (_config.Profiles.Count <= 1)
         {
-            MessageBox.Show(this, "Нельзя удалить единственный профиль.", "Qwen3.8 Launcher",
+            MessageBox.Show(this, "Нельзя удалить единственный профиль.", "NyaLlama Launcher",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
-        var res = MessageBox.Show(this, $"Удалить профиль «{_current.Name}»?", "Qwen3.8 Launcher",
+        var res = MessageBox.Show(this, $"Удалить профиль «{_current.Name}»?", "NyaLlama Launcher",
             MessageBoxButtons.YesNo, MessageBoxIcon.Question);
         if (res != DialogResult.Yes) return;
 
@@ -601,7 +601,7 @@ public sealed class MainForm : Form
     {
         if (_server.IsRunning)
         {
-            if (!quiet) MessageBox.Show(this, "Сервер уже запущен.", "Qwen3.8 Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (!quiet) MessageBox.Show(this, "Сервер уже запущен.", "NyaLlama Launcher", MessageBoxButtons.OK, MessageBoxIcon.Information);
             return;
         }
 
@@ -846,7 +846,7 @@ public sealed class MainForm : Form
     {
         if (_server.IsRunning)
         {
-            var res = MessageBox.Show(this, "Сервер запущен. Остановить его и закрыть?", "Qwen3.8 Launcher",
+            var res = MessageBox.Show(this, "Сервер запущен. Остановить его и закрыть?", "NyaLlama Launcher",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (res == DialogResult.No)
             {

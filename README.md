@@ -1,18 +1,18 @@
-# Qwen3.8 Launcher
+# NyaLlama Launcher
 
 GUI-лаунчер для локального запуска GGUF-моделей через `llama.cpp` (`llama-server`)
 на `127.0.0.1`, с профилями под разные нейронки и подключаемыми движками (runners).
 
-- Приложение: `Launcher\QwenLauncher.exe` (ярлык «Qwen3.8 Launcher» на рабочем столе)
+- Приложение: `Launcher\NyaLlamaLauncher.exe` (ярлык «NyaLlama Launcher» на рабочем столе)
 - Конфиг: `Launcher\config.yaml` (список профилей + выбранный профиль)
-- Логика: `QwenLauncher\Core` (профили, раннеры, процесс) — GUI: `QwenLauncher\UI`
+- Логика: `NyaLlamaLauncher\Core` (профили, раннеры, процесс) — GUI: `NyaLlamaLauncher\UI`
 - Сервер: `F:\SOFT\llama.cpp\llama-server.exe`
 - Порт у всех профилей — **8001**, хост **127.0.0.1**, API-ключ общий, поэтому
   opencode настраивается один раз, а меняется только модель.
 
 ## Как пользоваться
 
-1. Запустить `QwenLauncher.exe` (или ярлык).
+1. Запустить `NyaLlamaLauncher.exe` (или ярлык).
 2. Выбрать нейронку в списке «Нейронка» сверху; поля заполнятся последней
    сохранённой вариацией. `＋ Добавить` / `⧉ Дублировать` / `🗑 Удалить` — управление профилями.
 3. «▶ Запустить» → дождаться статуса «Готов → http://127.0.0.1:8001».
@@ -111,14 +111,14 @@ hf download openjev/openjev-GGUF --local-dir F:/AI/Jev
 
 - Новый профиль — кнопкой в UI или блоком `- id: ...` в `profiles:` (`config.yaml`).
 - Новый движок (не llama.cpp) — реализовать `IModelRunner` и добавить экземпляр
-  в `QwenLauncher\Core\Runners\RunnerRegistry.cs`. Для произвольных команд уже
+  в `NyaLlamaLauncher\Core\Runners\RunnerRegistry.cs`. Для произвольных команд уже
   есть раннер `command` (профиль Open-Jev-9B): `serverExe` = программа,
   `extraArgs` = аргументы, `workingDir` = рабочий каталог.
 
 ## Сборка
 
 ```powershell
-dotnet publish QwenLauncher\QwenLauncher.csproj -c Release -r win-x64 --self-contained false `
+dotnet publish NyaLlamaLauncher\NyaLlamaLauncher.csproj -c Release -r win-x64 --self-contained false `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o Launcher
 ```
 

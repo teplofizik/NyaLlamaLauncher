@@ -1,6 +1,6 @@
-using QwenLauncher.Core.Runners;
+using NyaLlamaLauncher.Core.Runners;
 
-namespace QwenLauncher.Core;
+namespace NyaLlamaLauncher.Core;
 
 /// <summary>
 /// Одна сохранённая вариация запуска нейронки: движок + все параметры запуска.
