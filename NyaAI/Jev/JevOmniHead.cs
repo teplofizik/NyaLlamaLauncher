@@ -5,11 +5,14 @@ namespace NyaAI.Jev;
 
 /// <summary>
 /// FP32 decision-head Jev-Omni: линейный слой над стандартизованным последним
-/// hidden-состоянием (3840). Соответствует decision-head-f32.npz.
+/// hidden-состоянием (3840). Соответствует <c>decision-head-f32.npz</c>.
 /// </summary>
 internal sealed class JevOmniHead
 {
+    /// <summary>Размер скрытого состояния (Gemma 4 12B).</summary>
     public const int HiddenSize = 3840;
+
+    /// <summary>Максимум вариантов, на которые обучена голова.</summary>
     public const int MaxOptions = 256;
 
     private readonly float[] _weight; // [MaxOptions * HiddenSize], row-major
@@ -25,6 +28,7 @@ internal sealed class JevOmniHead
         _sd = sd;
     }
 
+    /// <summary>Загрузить голову из .npz.</summary>
     public static JevOmniHead Load(string path)
     {
         if (!File.Exists(path))

@@ -40,7 +40,10 @@ public sealed class MainForm : Form
     private ComboBox _cmbCacheV = null!;
     private TextBox _txtNgl = null!;
     private TextBox _txtThreads = null!;
+    private TextBox _txtBatch = null!;
+    private TextBox _txtUbatch = null!;
     private TextBox _txtApiKey = null!;
+    private TextBox _txtFfmpeg = null!;
     private TextBox _txtExtra = null!;
     private CheckBox _chkFlash = null!;
     private CheckBox _chkWebUi = null!;
@@ -209,6 +212,13 @@ public sealed class MainForm : Form
         _txtThreads = new TextBox();
         _txtApiKey = new TextBox() { UseSystemPasswordChar = true };
         AddRow2(t, "Потоки CPU (-t)", _txtThreads, "API key", _txtApiKey);
+
+        _txtBatch = new TextBox();
+        _txtUbatch = new TextBox();
+        AddRow2(t, "Batch size", _txtBatch, "Ubatch size", _txtUbatch);
+
+        _txtFfmpeg = new TextBox();
+        AddRow(t, "ffmpeg.exe (медиа)", FilePicker(_txtFfmpeg, "ffmpeg (*.exe)|*.exe|Все файлы (*.*)|*.*"));
 
         _chkFlash = new CheckBox { Text = "Flash attention", AutoSize = true, Checked = true };
         _chkWebUi = new CheckBox { Text = "Web UI", AutoSize = true, Checked = true };
@@ -449,6 +459,9 @@ public sealed class MainForm : Form
             _txtNgl.Text = p.GpuLayers;
             _txtThreads.Text = p.Threads;
             _txtApiKey.Text = p.ApiKey;
+            _txtBatch.Text = p.BatchSize;
+            _txtUbatch.Text = p.UbatchSize;
+            _txtFfmpeg.Text = p.FfmpegPath;
             _txtExtra.Text = p.ExtraArgs;
             _chkFlash.Checked = p.FlashAttn;
             _chkWebUi.Checked = p.WebUi;
@@ -482,6 +495,9 @@ public sealed class MainForm : Form
         _current.GpuLayers = _txtNgl.Text.Trim();
         _current.Threads = _txtThreads.Text.Trim();
         _current.ApiKey = _txtApiKey.Text.Trim();
+        _current.BatchSize = _txtBatch.Text.Trim();
+        _current.UbatchSize = _txtUbatch.Text.Trim();
+        _current.FfmpegPath = _txtFfmpeg.Text.Trim();
         _current.ExtraArgs = _txtExtra.Text.Trim();
         _current.FlashAttn = _chkFlash.Checked;
         _current.WebUi = _chkWebUi.Checked;

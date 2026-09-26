@@ -1,8 +1,9 @@
 namespace NyaAI.Jev;
 
+/// <summary>Тонкая настройка опроса вероятностей вариантов у Jev-Style.</summary>
 public sealed class JevDecisionOptions
 {
-    /// <summary>Сколько top-логвероятностей запрашивать изначально.</summary>
+    /// <summary>Сколько top-логвероятностей запрашивать изначально (n_probs).</summary>
     public int InitialTopLogprobs { get; init; } = 100;
 
     /// <summary>Верхний предел при доборе вариантов, не попавших в top-N.</summary>

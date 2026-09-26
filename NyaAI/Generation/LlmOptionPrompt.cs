@@ -7,13 +7,16 @@ namespace NyaAI.Generation;
 
 /// <summary>
 /// Универсальный промпт «обычной LLM как decision-модели»: модель выбирает вариант
-/// (Choice/Bool) или называет номер (Score), ответ сопоставляется с вариантами.
+/// (Choice/Bool) или называет номер (Score), ответ сопоставляется с вариантами
+/// (точное совпадение → вхождение → коэффициент Жаккара).
 /// </summary>
 public sealed class LlmOptionPrompt : ILlmDecisionPrompt
 {
+    /// <inheritdoc />
     public string System { get; init; } =
         "You are a decision function. Answer with only the chosen option, exactly as written, without explanation.";
 
+    /// <inheritdoc />
     public string BuildUser(DecisionRequest request)
     {
         var sb = new StringBuilder();
@@ -35,6 +38,7 @@ public sealed class LlmOptionPrompt : ILlmDecisionPrompt
         return sb.ToString();
     }
 
+    /// <inheritdoc />
     public DecisionResult Parse(string output, DecisionRequest request)
     {
         return request.Kind == DecisionKind.Score
@@ -80,7 +84,6 @@ public sealed class LlmOptionPrompt : ILlmDecisionPrompt
         double value;
         if (num is null)
         {
-            // нет числа — пробуем сопоставить текст с вариантом
             var best = 0;
             var bestScore = -1.0;
             for (int i = 0; i < n; i++)

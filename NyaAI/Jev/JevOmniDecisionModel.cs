@@ -7,23 +7,39 @@ using NyaAI.Llama;
 namespace NyaAI.Jev;
 
 /// <summary>
-/// Реализация <see cref="IDecisionModel"/> для Jev-Omni (Gemma 4 12B):
-/// сервер запускается с <c>--embedding --pooling none</c> (+ mmproj для медиа),
-/// берётся последний hidden-вектор и к нему применяется FP32 decision-head.
+/// Реализация <see cref="IDecisionModel"/> для Jev-Omni (backbone Gemma 4 12B):
+/// сервер запускается с <c>--embedding --pooling none</c> (и mmproj для медиа),
+/// берётся последний hidden-вектор, к нему применяется FP32 decision-head.
 /// Медиа передаётся через <see cref="DecisionRequest.Media"/>.
 /// </summary>
+/// <example>
+/// <code>
+/// var omni = new JevOmniDecisionModel(client, @"F:\AI\Jev\decision-head-f32.npz");
+/// var r = await omni.DecideAsync(new DecisionRequest
+/// {
+///     State = "Look at the image.",
+///     Question = "What color is the large shape?",
+///     Options = new[] { "blue", "red", "green", "yellow" },
+///     Media = new[] { DecisionMedia.Image(File.ReadAllBytes("pic.png")) }
+/// });
+/// </code>
+/// </example>
 public sealed class JevOmniDecisionModel : IDecisionModel
 {
     private readonly LlamaServerClient _client;
     private readonly JevOmniHead _head;
     private string? _mediaMarker;
 
+    /// <summary>Создать модель по пути к decision-head (.npz).</summary>
+    /// <param name="client">Клиент llama.cpp server (в режиме эмбеддингов).</param>
+    /// <param name="decisionHeadPath">Путь к <c>decision-head-f32.npz</c>.</param>
     public JevOmniDecisionModel(LlamaServerClient client, string decisionHeadPath)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _head = JevOmniHead.Load(decisionHeadPath);
     }
 
+    /// <inheritdoc />
     public async Task<DecisionResult> DecideAsync(DecisionRequest request, CancellationToken cancellationToken = default)
     {
         var count = request.Options.Count;

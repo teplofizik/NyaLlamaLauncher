@@ -5,20 +5,28 @@ namespace NyaAI.Jev;
 
 /// <summary>
 /// Реализация <see cref="IDecisionModel"/> для Jev-Style decision-моделей:
-/// один prefill возвращает логиты вариантов A..Z, нормируем их по объявленным
-/// вариантам. Калибровка в calibrated-GGUF уже вшита, поэтому температура 1.0.
+/// один prefill возвращает логиты вариантов A..Z, которые нормируются по
+/// объявленным вариантам. Калибровка в calibrated-GGUF уже вшита (температура 1.0).
 /// </summary>
+/// <remarks>
+/// Требует сервер llama.cpp с native <c>/completion</c> и включённым <c>n_probs</c>.
+/// Медиа не поддерживается — см. <see cref="JevOmniDecisionModel"/>.
+/// </remarks>
 public sealed class JevStyleDecisionModel : IDecisionModel
 {
     private readonly LlamaServerClient _client;
     private readonly JevDecisionOptions _options;
 
+    /// <summary>Создать модель поверх клиента.</summary>
+    /// <param name="client">Клиент llama.cpp server.</param>
+    /// <param name="options">Настройки опроса (null = по умолчанию).</param>
     public JevStyleDecisionModel(LlamaServerClient client, JevDecisionOptions? options = null)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _options = options ?? new JevDecisionOptions();
     }
 
+    /// <inheritdoc />
     public async Task<DecisionResult> DecideAsync(DecisionRequest request, CancellationToken cancellationToken = default)
     {
         if (request.Media is { Count: > 0 })

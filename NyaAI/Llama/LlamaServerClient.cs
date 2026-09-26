@@ -7,13 +7,33 @@ using NyaAI.Decision;
 
 namespace NyaAI.Llama;
 
-/// <summary>Тонкий клиент к llama.cpp server (native /completion, /health, /v1/models).</summary>
+/// <summary>
+/// Тонкий клиент к llama.cpp server: native <c>/completion</c> (с распределением
+/// следующего токена), а также <c>/health</c> и <c>/v1/models</c>.
+/// </summary>
+/// <remarks>
+/// Класс не управляет процессом сервера — предполагается, что он уже запущен
+/// (например, профилем в NyaLlamaLauncher).
+/// </remarks>
+/// <example>
+/// <code>
+/// using var client = new LlamaServerClient(new LlamaServerOptions
+/// {
+///     BaseUrl = "http://127.0.0.1:8001",
+///     ApiKey  = "..."
+/// });
+/// if (await client.HealthAsync()) { /* ... */ }
+/// </code>
+/// </example>
 public sealed class LlamaServerClient : IDisposable
 {
     private readonly HttpClient _http;
     private readonly bool _ownsHttp;
     private readonly LlamaServerOptions _options;
 
+    /// <summary>Создать клиент.</summary>
+    /// <param name="options">Настройки подключения.</param>
+    /// <param name="httpClient">Внешний <see cref="HttpClient"/> (не будет уничтожен клиентом).</param>
     public LlamaServerClient(LlamaServerOptions options, HttpClient? httpClient = null)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -31,12 +51,14 @@ public sealed class LlamaServerClient : IDisposable
         }
     }
 
+    /// <summary>Базовый адрес сервера (без завершающего «/»).</summary>
     public string BaseUrl { get; }
 
     internal HttpClient Http => _http;
     internal string? ApiKey => _options.ApiKey;
     internal LlamaServerOptions Options => _options;
 
+    /// <summary>Проверить доступность сервера (<c>/health</c>).</summary>
     public async Task<bool> HealthAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -50,6 +72,7 @@ public sealed class LlamaServerClient : IDisposable
         }
     }
 
+    /// <summary>Список доступных идентификаторов моделей (<c>/v1/models</c>).</summary>
     public async Task<IReadOnlyList<string>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         using var resp = await _http.GetAsync(BaseUrl + "/v1/models", cancellationToken);
@@ -71,6 +94,9 @@ public sealed class LlamaServerClient : IDisposable
     }
 
     /// <summary>Один жадный шаг генерации и распределение следующего токена (top-N).</summary>
+    /// <param name="prompt">Промпт.</param>
+    /// <param name="topLogprobs">Сколько top-логвероятностей запросить (<c>n_probs</c>).</param>
+    /// <param name="cancellationToken">Токен отмены.</param>
     public async Task<CompletionResult> CompleteAsync(
         string prompt,
         int topLogprobs = 100,
@@ -98,6 +124,7 @@ public sealed class LlamaServerClient : IDisposable
         return CompletionResult.Parse(json);
     }
 
+    /// <inheritdoc />
     public void Dispose()
     {
         if (_ownsHttp) _http.Dispose();

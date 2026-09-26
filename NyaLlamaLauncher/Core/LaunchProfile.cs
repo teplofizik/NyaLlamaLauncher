@@ -34,6 +34,15 @@ public sealed class LaunchProfile
     /// <summary>Режим эмбеддингов (--embedding --pooling none) для decision-моделей.</summary>
     public bool Embedding { get; set; } = false;
 
+    /// <summary>Путь к ffmpeg.exe (для медиа decision-моделей; пусто = искать в PATH).</summary>
+    public string FfmpegPath { get; set; } = "";
+
+    /// <summary>Логический размер батча (--batch-size; пусто = по умолчанию).</summary>
+    public string BatchSize { get; set; } = "";
+
+    /// <summary>Физический размер батча (--ubatch-size; пусто = по умолчанию).</summary>
+    public string UbatchSize { get; set; } = "";
+
     public string ExtraArgs { get; set; } = "";
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];

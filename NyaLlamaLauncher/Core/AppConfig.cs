@@ -138,9 +138,13 @@ public sealed class AppConfig
         // Jev — decision-модели (заготовки, файлы ещё не скачаны)
         var jevStyle = Llama("Jev-Style-2B Decision (BF16)", "jev-style-2b",
             @"F:\AI\Jev-Style-v2-Calibrated-BF16.gguf", 4096, "f16");
-        var jevOmni = Llama("Jev-Omni Q4_K_M (decision)", "jev-omni",
+        var jevOmni = Llama("Jev-Omni Q4_K_M (мультимодал)", "jev-omni",
             @"F:\AI\Jev-Omni-Unified-Q4_K_M.gguf", 8192, "f16");
-        jevOmni.Embedding = true; // текстовый режим; медиа требует mmproj gemma4uv (нужен свежий llama.cpp)
+        jevOmni.MmprojPath = @"F:\AI\Jev\mmproj-jev-omni.gguf";
+        jevOmni.Embedding = true; // decision-режим: --embedding --pooling none
+        jevOmni.FfmpegPath = @"G:\Dev\ffmpeg-2023-12-14-git-5256b2fbe6-essentials_build\bin\ffmpeg.exe";
+        jevOmni.BatchSize = "2048";   // медиа (видео-кадры) требует крупный батч
+        jevOmni.UbatchSize = "2048";
         var openJev = Llama("OpenJev-27B Q4_K_M", "openjev-27b",
             @"F:\AI\Jev\OpenJev-Q4_K_M.gguf", 16384, "q8_0");
 

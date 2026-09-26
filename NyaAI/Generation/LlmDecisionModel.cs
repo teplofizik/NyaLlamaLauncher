@@ -6,12 +6,28 @@ namespace NyaAI.Generation;
 /// Использование обычной LLM как decision-модели: промпт строится стратегией
 /// <see cref="ILlmDecisionPrompt"/>, ответ разбирается обратно в <see cref="DecisionResult"/>.
 /// </summary>
+/// <example>
+/// <code>
+/// var decider = new LlmDecisionModel(textGenerator);
+/// var r = await decider.DecideAsync(new DecisionRequest
+/// {
+///     State = "The film was excellent.",
+///     Question = "Sentiment?",
+///     Options = new[] { "negative", "positive" }
+/// });
+/// Console.WriteLine($"{r.Best.Option} {r.Best.Probability:0.00}");
+/// </code>
+/// </example>
 public sealed class LlmDecisionModel : IDecisionModel
 {
     private readonly ITextGenerator _generator;
     private readonly ILlmDecisionPrompt _prompt;
     private readonly GenerationOptions? _options;
 
+    /// <summary>Создать decision-модель поверх текстового генератора.</summary>
+    /// <param name="generator">Генератор (обычная LLM).</param>
+    /// <param name="prompt">Стратегия промпта/разбора (null = <see cref="LlmOptionPrompt"/>).</param>
+    /// <param name="options">Параметры генерации (обычно достаточно <c>MaxTokens = 16</c>).</param>
     public LlmDecisionModel(
         ITextGenerator generator,
         ILlmDecisionPrompt? prompt = null,
@@ -22,6 +38,7 @@ public sealed class LlmDecisionModel : IDecisionModel
         _options = options;
     }
 
+    /// <inheritdoc />
     public async Task<DecisionResult> DecideAsync(DecisionRequest request, CancellationToken cancellationToken = default)
     {
         var messages = new[]

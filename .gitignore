@@ -81,3 +81,22 @@ artifacts/
 
 # Локальный конфиг запуска содержит API-ключ — не коммитим.
 /Launcher/config.yaml
+
+# ============================================================
+#  NyaAI.Examples
+# ============================================================
+
+# Ассеты (аудио/видео/фото) регенерируются скриптом tools/make-assets.py,
+# в git не храним бинарь. Папка с ассетами создаётся на месте.
+/NyaAI.Examples/Assets/*.png
+/NyaAI.Examples/Assets/*.jpg
+/NyaAI.Examples/Assets/*.jpeg
+/NyaAI.Examples/Assets/*.webp
+/NyaAI.Examples/Assets/*.bmp
+/NyaAI.Examples/Assets/*.gif
+/NyaAI.Examples/Assets/*.tiff
+/NyaAI.Examples/Assets/*.mp3
+/NyaAI.Examples/Assets/*.wav
+/NyaAI.Examples/Assets/*.mp4
+/NyaAI.Examples/Assets/*.webm
+/NyaAI.Examples/Assets/*.mkv

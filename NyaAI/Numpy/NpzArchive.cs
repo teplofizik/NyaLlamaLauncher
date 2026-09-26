@@ -8,7 +8,10 @@ namespace NyaAI.Numpy;
 /// <summary>Массив из .npy/.npz, приведённый к float и C-порядку.</summary>
 public sealed class NpArray
 {
+    /// <summary>Размерности массива.</summary>
     public int[] Shape { get; }
+
+    /// <summary>Данные в C-порядке, приведённые к float.</summary>
     public float[] Data { get; }
 
     internal NpArray(int[] shape, float[] data)
@@ -17,35 +20,51 @@ public sealed class NpArray
         Data = data;
     }
 
-    /// <summary>Первый размер (число строк), либо 1 для одномерного.</summary>
+    /// <summary>Первый размер (число строк), либо 1 для одномерного массива.</summary>
     public int Rows => Shape.Length >= 2 ? Shape[0] : 1;
 
-    /// <summary>Второй размер (число столбцов), либо длина для одномерного.</summary>
+    /// <summary>Второй размер (число столбцов), либо длина для одномерного массива.</summary>
     public int Cols => Shape.Length >= 2 ? Shape[1] : (Shape.Length == 1 ? Shape[0] : 1);
 
+    /// <summary>Доступ к элементу по плоскому индексу.</summary>
     public float this[int i] => Data[i];
 }
 
-/// <summary>Минимальный читатель numpy .npz (zip из .npy) — только для нужных типов.</summary>
+/// <summary>
+/// Минимальный читатель numpy <c>.npz</c> (zip из <c>.npy</c>) — только нужные
+/// типы (float32/float64, целые, uint8), порядок C. Внешних зависимостей нет.
+/// </summary>
+/// <example>
+/// <code>
+/// var npz = NpzArchive.Open(@"F:\AI\Jev\decision-head-f32.npz");
+/// var w = npz["linear.weight"];   // NpArray (256 x 3840)
+/// </code>
+/// </example>
 public sealed class NpzArchive
 {
     private readonly Dictionary<string, NpArray> _arrays;
 
     private NpzArchive(Dictionary<string, NpArray> arrays) => _arrays = arrays;
 
+    /// <summary>Все массивы архива по именам (без расширения .npy).</summary>
     public IReadOnlyDictionary<string, NpArray> Arrays => _arrays;
 
+    /// <summary>Получить массив по имени; при отсутствии — <see cref="NyaAIException"/>.</summary>
     public NpArray this[string name] =>
         _arrays.TryGetValue(name, out var a)
             ? a
             : throw new NyaAIException($"В .npz нет массива '{name}'. Есть: {string.Join(", ", _arrays.Keys)}");
 
+    /// <summary>Открыть .npz по пути.</summary>
+    /// <param name="path">Путь к файлу.</param>
     public static NpzArchive Open(string path)
     {
         using var fs = File.OpenRead(path);
         return Read(fs);
     }
 
+    /// <summary>Прочитать .npz из потока.</summary>
+    /// <param name="stream">Поток с zip-содержимым .npz.</param>
     public static NpzArchive Read(Stream stream)
     {
         var arrays = new Dictionary<string, NpArray>(StringComparer.Ordinal);

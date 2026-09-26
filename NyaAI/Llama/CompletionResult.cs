@@ -3,16 +3,23 @@ using System.Text.Json;
 namespace NyaAI.Llama;
 
 /// <summary>Токен и его лог-вероятность на очередной позиции.</summary>
+/// <param name="Token">Текст токена.</param>
+/// <param name="LogProb">Натуральный логарифм вероятности.</param>
 public sealed record TokenLogProb(string Token, double LogProb);
 
-/// <summary>Результат вызова <c>/completion</c> у llama.cpp.</summary>
+/// <summary>Результат вызова native <c>/completion</c> у llama.cpp.</summary>
 public sealed class CompletionResult
 {
+    /// <summary>Сгенерированный текст.</summary>
     public string Content { get; init; } = "";
+
+    /// <summary>Число токенов промпта.</summary>
     public int TokensEvaluated { get; init; }
+
+    /// <summary>Скорость обработки промпта, токенов/с.</summary>
     public double PromptPerSecond { get; init; }
 
-    /// <summary>Распределение следующего токена (top-N), если запрошено.</summary>
+    /// <summary>Распределение следующего токена (top-N), если запрошено <c>n_probs</c>.</summary>
     public IReadOnlyList<TokenLogProb> TopLogProbs { get; init; } = Array.Empty<TokenLogProb>();
 
     internal static CompletionResult Parse(string json)

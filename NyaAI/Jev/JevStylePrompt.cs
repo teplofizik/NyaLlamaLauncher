@@ -5,6 +5,8 @@ namespace NyaAI.Jev;
 /// <summary>Промпт decision-интерфейса Jev-Style (Qwen3.5-2B Decision).</summary>
 public static class JevStylePrompt
 {
+    /// <summary>Собрать промпт решения из запроса.</summary>
+    /// <param name="request">Запрос (используются State, Question, Options).</param>
     public static string Build(DecisionRequest request)
     {
         var lines = new List<string>

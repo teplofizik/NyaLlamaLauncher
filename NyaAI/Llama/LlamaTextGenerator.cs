@@ -12,13 +12,26 @@ namespace NyaAI.Llama;
 /// Обычная LLM через llama.cpp: низкий уровень (native <c>/completion</c>) и
 /// чат (<c>/v1/chat/completions</c>), с блокирующим и потоковым режимами.
 /// </summary>
+/// <example>
+/// <code>
+/// var llm = new LlamaTextGenerator(client);
+/// var chat = await llm.ChatAsync(new[]
+/// {
+///     ChatMessage.System("Отвечай кратко."),
+///     ChatMessage.User("Что такое мьютекс?")
+/// });
+/// </code>
+/// </example>
 public sealed class LlamaTextGenerator : ITextGenerator
 {
     private readonly LlamaServerClient _client;
 
+    /// <summary>Создать генератор поверх клиента.</summary>
+    /// <param name="client">Клиент llama.cpp server.</param>
     public LlamaTextGenerator(LlamaServerClient client) =>
         _client = client ?? throw new ArgumentNullException(nameof(client));
 
+    /// <inheritdoc />
     public async Task<GenerationResult> GenerateAsync(
         string prompt,
         GenerationOptions? options = null,
@@ -29,6 +42,7 @@ public sealed class LlamaTextGenerator : ITextGenerator
         return ParseCompletion(json);
     }
 
+    /// <inheritdoc />
     public async Task<GenerationResult> ChatAsync(
         IReadOnlyList<ChatMessage> messages,
         GenerationOptions? options = null,
@@ -39,6 +53,7 @@ public sealed class LlamaTextGenerator : ITextGenerator
         return ParseChat(json);
     }
 
+    /// <inheritdoc />
     public async IAsyncEnumerable<string> GenerateStreamAsync(
         string prompt,
         GenerationOptions? options = null,
@@ -49,6 +64,7 @@ public sealed class LlamaTextGenerator : ITextGenerator
             yield return chunk;
     }
 
+    /// <inheritdoc />
     public async IAsyncEnumerable<string> ChatStreamAsync(
         IReadOnlyList<ChatMessage> messages,
         GenerationOptions? options = null,

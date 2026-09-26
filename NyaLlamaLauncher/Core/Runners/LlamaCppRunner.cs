@@ -45,6 +45,18 @@ public sealed class LlamaCppRunner : IModelRunner
         a.Add("--parallel");
         a.Add("1");
 
+        if (int.TryParse(c.BatchSize, out var batch))
+        {
+            a.Add("--batch-size");
+            a.Add(batch.ToString());
+        }
+
+        if (int.TryParse(c.UbatchSize, out var ubatch))
+        {
+            a.Add("--ubatch-size");
+            a.Add(ubatch.ToString());
+        }
+
         a.Add("--flash-attn");
         a.Add(c.FlashAttn ? "on" : "off");
 

@@ -1,12 +1,24 @@
 # NyaLlama Launcher
 
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
+
+GUI-лаунчер и набор библиотек для локального запуска нейронок (`llama.cpp`).
+
+Состав репозитория:
+- **`NyaLlamaLauncher`** — WinForms-лаунчер (профили запуска, движки).
+- **`NyaAI`** — .NET-библиотека: генерация текста, decision-модели Jev, работа с медиа. См. [`NyaAI/README.md`](NyaAI/README.md).
+- **`NyaAI.Examples`** — примеры и тестовые ассеты. См. [`NyaAI.Examples/README.md`](NyaAI.Examples/README.md).
+- **`Launcher`** — публикация лаунчера (`dotnet publish`).
+- Лицензия — [`LICENSE`](LICENSE) (MIT).
+
 GUI-лаунчер для локального запуска GGUF-моделей через `llama.cpp` (`llama-server`)
 на `127.0.0.1`, с профилями под разные нейронки и подключаемыми движками (runners).
 
 - Приложение: `Launcher\NyaLlamaLauncher.exe` (ярлык «NyaLlama Launcher» на рабочем столе)
 - Конфиг: `Launcher\config.yaml` (список профилей + выбранный профиль)
 - Логика: `NyaLlamaLauncher\Core` (профили, раннеры, процесс) — GUI: `NyaLlamaLauncher\UI`
-- Сервер: `F:\SOFT\llama.cpp\llama-server.exe`
+- Сервер: `F:\SOFT\llama.cpp\llama-server.exe` (llama.cpp **b11195 / v0.5.0-dev**, CUDA 13.4;
+  бэкап прежней сборки b9219 — `F:\SOFT\llama.cpp\_backup_b9219`)
 - Порт у всех профилей — **8001**, хост **127.0.0.1**, API-ключ общий, поэтому
   opencode настраивается один раз, а меняется только модель.
 
@@ -33,7 +45,7 @@ GUI-лаунчер для локального запуска GGUF-моделе�
 | Qwen2.5-Coder-14B | Qwen2.5-Coder-14B-Instruct-Q4_K_M | 8.4 ГБ | да | [lmstudio-community/Qwen2.5-Coder-14B-Instruct-GGUF](https://huggingface.co/lmstudio-community/Qwen2.5-Coder-14B-Instruct-GGUF) |
 | Gemma4-12B-Coder | gemma4-coding-Q4_K_M | 6.9 ГБ | да | [yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF](https://huggingface.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF) |
 | Jev-Style-2B Decision (BF16) | Jev-Style-v2-Calibrated-BF16 | 3.8 ГБ | да | [chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF](https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF) |
-| Jev-Omni Q4_K_M (decision) | Jev-Omni-Unified-Q4_K_M | 6.9 ГБ | да | [Reza2kn/Jev-Omni-Q4_K_M-GGUF](https://huggingface.co/Reza2kn/Jev-Omni-Q4_K_M-GGUF) |
+| Jev-Omni Q4_K_M (мультимодал) | Jev-Omni-Unified-Q4_K_M + mmproj | 6.9 ГБ | да | [Reza2kn/Jev-Omni-Q4_K_M-GGUF](https://huggingface.co/Reza2kn/Jev-Omni-Q4_K_M-GGUF) |
 | OpenJev-27B Q4_K_M | OpenJev-Q4_K_M | 16.5 ГБ | нет (нужно 24 ГБ) | [openjev/openjev-GGUF](https://huggingface.co/openjev/openjev-GGUF) |
 | Open-Jev-9B (Python) | LoRA+head для Qwen3.5-9B | — | — | [ZefanCai/Open-Jev-9B](https://huggingface.co/ZefanCai/Open-Jev-9B) |
 
@@ -172,15 +184,51 @@ var r = await omni.DecideAsync(new DecisionRequest
 Console.WriteLine($"{r.Best.Option} yes={r.YesProbability:0.000}");
 ```
 
-Запуск сервера — профиль «Jev-Omni Q4_K_M (decision)» в лаунчере (галочка «Эмбеддинги»).
-Проверено на `Jev-Omni-Unified-Q4_K_M.gguf`: bool/choice/score работают.
+Запуск сервера — профиль «Jev-Omni Q4_K_M (мультимодал)» в лаунчере (галочка «Эмбеддинги»).
+Проверено на `Jev-Omni-Unified-Q4_K_M.gguf`: bool/choice/score и решение по изображению работают.
 
-> Медиа (изображение/аудио/видео) в Jev-Omni идёт через `DecisionRequest.Media`
-> (`DecisionMedia.Image/Audio/VideoFrame`, байты уже в нужном формате). Для медиа
-> нужен mmproj `mmproj-jev-omni.gguf` — но **наша сборка llama.cpp (b9219) пока не
-> знает тип проектора `gemma4uv`**, поэтому текстовый режим работает без `--mmproj`,
-> а для медиа потребуется более свежая сборка llama.cpp. Конвертацию аудио/видео
-> (ffmpeg не установлен) выполняет вызывающая сторона.
+Медиа передаётся через `DecisionRequest.Media` (`DecisionMedia.Image/Audio/VideoFrame`,
+байты уже в нужном формате):
+
+```csharp
+var img = await omni.DecideAsync(new DecisionRequest
+{
+    State = "Look at the image.",
+    Question = "What color is the large shape?",
+    Options = new[] { "blue", "red", "green", "yellow" },
+    Media = new[] { DecisionMedia.Image(File.ReadAllBytes(@"C:\path\pic.png")) }
+});
+```
+
+> Для медиа нужен mmproj `mmproj-jev-omni.gguf` (уже в профиле). Сборка llama.cpp
+> обновлена до **b11195** — она понимает тип проектора `gemma4uv`. Проверено:
+> `/props` отдаёт `vision/audio/video = true` и `media_marker`.
+
+### Подготовка медиа (ffmpeg)
+
+`NyaAI.Media.DecisionMediaLoader` готовит медиа под требования Jev-Omni:
+
+- изображение — байты как есть (`LoadImageAsync`);
+- аудио — `LoadAudioAsync` → WAV 16 кГц моно (ffmpeg);
+- видео — `LoadVideoAsync` → равномерные PNG-кадры (ffmpeg), по умолчанию 16.
+
+```csharp
+var loader = new DecisionMediaLoader(new FfmpegOptions
+{
+    ExecutablePath = @"G:\Dev\ffmpeg-2023-12-14-git-5256b2fbe6-essentials_build\bin\ffmpeg.exe"
+});
+var audio  = await loader.LoadAudioAsync(@"C:\path\speech.mp3");
+var frames = await loader.LoadVideoAsync(@"C:\path\clip.mp4");
+```
+
+Путь к ffmpeg указывается в профиле лаунчера — поле `ffmpegPath` (в UI «ffmpeg.exe (медиа)»),
+для профиля Jev-Omni прописан `G:\Dev\ffmpeg-2023-12-14-git-5256b2fbe6-essentials_build\bin\ffmpeg.exe`.
+Подойдёт любая x64-сборка ffmpeg (проверено на 2023-12-14 gyan.dev, full/essentials).
+Если путь не задан — ищется `ffmpeg.exe` в `PATH`.
+
+> Видео-кадры дают много токенов: для профиля Jev-Omni в конфиге заданы
+> `batchSize`/`ubatchSize = 2048`, иначе сервер вернёт «input too large» на длинном
+> медиа-промпте. Проверено: аудио и видео end-to-end работают.
 
 ### Генерация текста (обычные LLM)
 
@@ -231,6 +279,51 @@ bool started = await decider.IsYesAsync("Meeting at 10 AM, now 9 AM.", "Has the 
 > Для чата у модели должен быть корректный чат-шаблон в GGUF (`--jinja`). Некоторые
 > completion-модели (например `deepseek-coder-6.7B-kexer`) без шаблона «продолжают
 > диалог» — для них используйте `GenerateAsync` либо задайте `--chat-template-file`.
+
+### Проект примеров NyaAI.Examples
+
+`NyaAI.Examples\` — консольные примеры для проверки классов. Запуск:
+
+```powershell
+# все примеры
+dotnet run --project NyaAI.Examples
+
+# конкретный: generation | jev-style | jev-omni
+dotnet run --project NyaAI.Examples -- jev-omni
+```
+
+Пути/модели задаются аргументами `--key=value` или переменными окружения
+(`NYAAI_*`). Примеры могут сами поднять `llama-server`, если задан
+`NYAAI_SERVER_EXE`:
+
+```powershell
+$env:NYAAI_SERVER_EXE   = "F:\SOFT\llama.cpp\llama-server.exe"
+$env:NYAAI_JEVOMNI_MODEL= "F:\AI\Jev-Omni-Unified-Q4_K_M.gguf"
+$env:NYAAI_JEVOMNI_HEAD = "F:\AI\Jev\decision-head-f32.npz"
+$env:NYAAI_FFMPEG       = "G:\Dev\ffmpeg-2023-12-14-git-5256b2fbe6-essentials_build\bin\ffmpeg.exe"
+$env:NYAAI_LLM_MODEL    = "F:\AI\lmstudio-community\Qwen2.5-Coder-14B-Instruct-GGUF\Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf"
+$env:NYAAI_LLM_ALIAS    = "local/qwen2.5-coder-14b"
+dotnet run --project NyaAI.Examples
+```
+
+Медиа-ассеты лежат в `NyaAI.Examples\Assets` (простые фото/аудио/видео, по которым
+проходят нейронки). Они генерируются скриптом `NyaAI.Examples\tools\make-assets.py`
+(Pillow + ffmpeg), в git не хранятся.
+
+| Пример | Что проверяет |
+|---|---|
+| `generation` | обычная LLM: completion, чат, стриминг, LLM-decision |
+| `jev-style` | Jev-Style: choice/bool/score через `/completion` |
+| `jev-omni` | Jev-Omni: текст + изображение (png/webp) + аудио + видео |
+
+### Формат изображений
+
+Проверено на mtmd: **PNG, JPG/JPEG, BMP, GIF** читаются напрямую; **WebP и TIFF —
+нет** («Failed to load image»). Поэтому `DecisionMediaLoader.LoadImageAsync`
+пропускает поддерживаемые форматы как есть, а остальные (webp/tiff/avif/heic…)
+автоматически перекодирует в PNG через ffmpeg. Принудительно —
+`LoadImageAsPngAsync`. Отдельный «оговорённый» формат не требуется: достаточно
+png/jpg, остальное нормализуется само.
 
 Подключить к своему проекту:
 

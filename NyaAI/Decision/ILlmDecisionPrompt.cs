@@ -3,6 +3,7 @@ namespace NyaAI.Decision;
 /// <summary>
 /// Стратегия превращения <see cref="DecisionRequest"/> в промпт для обычной LLM
 /// и разбора её ответа обратно в <see cref="DecisionResult"/>.
+/// Реализация по умолчанию — <c>NyaAI.Generation.LlmOptionPrompt</c>.
 /// </summary>
 public interface ILlmDecisionPrompt
 {
