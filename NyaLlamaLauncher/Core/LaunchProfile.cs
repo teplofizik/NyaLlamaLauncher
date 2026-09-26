@@ -30,6 +30,10 @@ public sealed class LaunchProfile
     public bool WebUi { get; set; } = true;
     public bool Reasoning { get; set; } = true;
     public bool ContextShift { get; set; } = true;
+
+    /// <summary>Режим эмбеддингов (--embedding --pooling none) для decision-моделей.</summary>
+    public bool Embedding { get; set; } = false;
+
     public string ExtraArgs { get; set; } = "";
 
     public static string NewId() => Guid.NewGuid().ToString("N")[..8];

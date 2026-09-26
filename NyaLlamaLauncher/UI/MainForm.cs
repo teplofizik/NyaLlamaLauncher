@@ -46,6 +46,7 @@ public sealed class MainForm : Form
     private CheckBox _chkWebUi = null!;
     private CheckBox _chkReasoning = null!;
     private CheckBox _chkContextShift = null!;
+    private CheckBox _chkEmbedding = null!;
 
     // действия
     private Button _btnStart = null!;
@@ -213,8 +214,9 @@ public sealed class MainForm : Form
         _chkWebUi = new CheckBox { Text = "Web UI", AutoSize = true, Checked = true };
         _chkReasoning = new CheckBox { Text = "Reasoning (deepseek)", AutoSize = true, Checked = true };
         _chkContextShift = new CheckBox { Text = "Context shift", AutoSize = true, Checked = true };
+        _chkEmbedding = new CheckBox { Text = "Эмбеддинги (--embedding)", AutoSize = true };
         var opts = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
-        opts.Controls.AddRange(new Control[] { _chkFlash, _chkWebUi, _chkReasoning, _chkContextShift });
+        opts.Controls.AddRange(new Control[] { _chkFlash, _chkWebUi, _chkReasoning, _chkContextShift, _chkEmbedding });
         AddRow(t, "Опции", opts);
 
         _txtExtra = new TextBox();
@@ -452,6 +454,7 @@ public sealed class MainForm : Form
             _chkWebUi.Checked = p.WebUi;
             _chkReasoning.Checked = p.Reasoning;
             _chkContextShift.Checked = p.ContextShift;
+            _chkEmbedding.Checked = p.Embedding;
         }
         finally
         {
@@ -484,6 +487,7 @@ public sealed class MainForm : Form
         _current.WebUi = _chkWebUi.Checked;
         _current.Reasoning = _chkReasoning.Checked;
         _current.ContextShift = _chkContextShift.Checked;
+        _current.Embedding = _chkEmbedding.Checked;
     }
 
     private void OnNameChanged()

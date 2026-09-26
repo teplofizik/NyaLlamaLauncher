@@ -32,8 +32,8 @@ GUI-лаунчер для локального запуска GGUF-моделе�
 | OmniCoder-9B | omnicoder-9b-q4_k_s | 5.0 ГБ | да | [Tesslate/OmniCoder-9B-GGUF](https://huggingface.co/Tesslate/OmniCoder-9B-GGUF) |
 | Qwen2.5-Coder-14B | Qwen2.5-Coder-14B-Instruct-Q4_K_M | 8.4 ГБ | да | [lmstudio-community/Qwen2.5-Coder-14B-Instruct-GGUF](https://huggingface.co/lmstudio-community/Qwen2.5-Coder-14B-Instruct-GGUF) |
 | Gemma4-12B-Coder | gemma4-coding-Q4_K_M | 6.9 ГБ | да | [yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF](https://huggingface.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF) |
-| Jev-Style-2B Decision (Q8_0) | Jev-Style-v2-Calibrated-Q8_0 | 2.0 ГБ | да | [chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF](https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF) |
-| Jev-Omni Q4_K_M (мультимодал) | Jev-Omni-Unified-Q4_K_M + mmproj | 7.4 ГБ | да (~9 ГиБ VRAM) | [Reza2kn/Jev-Omni-Q4_K_M-GGUF](https://huggingface.co/Reza2kn/Jev-Omni-Q4_K_M-GGUF) |
+| Jev-Style-2B Decision (BF16) | Jev-Style-v2-Calibrated-BF16 | 3.8 ГБ | да | [chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF](https://huggingface.co/chaoliangUNSW/Jev-Style-Qwen3.5-2B-Decision-v2-GGUF) |
+| Jev-Omni Q4_K_M (decision) | Jev-Omni-Unified-Q4_K_M | 6.9 ГБ | да | [Reza2kn/Jev-Omni-Q4_K_M-GGUF](https://huggingface.co/Reza2kn/Jev-Omni-Q4_K_M-GGUF) |
 | OpenJev-27B Q4_K_M | OpenJev-Q4_K_M | 16.5 ГБ | нет (нужно 24 ГБ) | [openjev/openjev-GGUF](https://huggingface.co/openjev/openjev-GGUF) |
 | Open-Jev-9B (Python) | LoRA+head для Qwen3.5-9B | — | — | [ZefanCai/Open-Jev-9B](https://huggingface.co/ZefanCai/Open-Jev-9B) |
 
@@ -106,6 +106,140 @@ hf download openjev/openjev-GGUF --local-dir F:/AI/Jev
 Идентификатор модели в opencode = `llama.cpp/<alias>`, где `<alias>` — поле
 «Алиас модели» из профиля (например `llama.cpp/local/qwen2.5-coder-14b`).
 После правки конфига opencode нужно **перезапустить**.
+
+## Библиотека NyaAI (код для Jev и не только)
+
+`NyaAI\` — .NET-библиотека (`NyaAI.dll`, net8.0) с абстракцией и клиентами для
+локальных нейронок. Сейчас реализованы decision-модели Jev-Style (через native
+`/completion`), в перспективе — Jev-Omni, openjev и др.
+
+```
+NyaAI/
+  Decision/    IDecisionModel, DecisionRequest/Result, DecisionKind, IsYesAsync, ILlmDecisionPrompt
+  Llama/       LlamaServerClient (/completion,/health,/v1/models), LlamaTextGenerator
+  Generation/  ITextGenerator, ChatMessage, GenerationOptions/Result, LlmDecisionModel, LlmOptionPrompt
+  Jev/         JevStyleDecisionModel, JevStylePrompt, JevDecisionOptions
+```
+
+Два уровня генерации текста: низкий — `GenerateAsync(промпт)` (native `/completion`)
+и удобный — `ChatAsync(messages)` (`/v1/chat/completions`); оба с потоковыми версиями.
+
+Пример использования (choice / bool / score):
+
+```csharp
+using NyaAI.Decision;
+using NyaAI.Jev;
+using NyaAI.Llama;
+
+using var client = new LlamaServerClient(new LlamaServerOptions
+{
+    BaseUrl = "http://127.0.0.1:8001",
+    ApiKey  = "+ynqf5MKHHKQ#aFm+T7JK@0xg4BN7^4%QyLNVGB%fJQ="
+});
+var model = new JevStyleDecisionModel(client);
+
+var r = await model.DecideAsync(new DecisionRequest
+{
+    State = "The film was excellent.",
+    Question = "Sentiment?",
+    Options = new[] { "negative", "positive" },
+    Kind = DecisionKind.Choice
+});
+Console.WriteLine($"{r.Best.Option} p={r.Best.Probability:0.0000}");
+
+bool started = await model.IsYesAsync("Meeting at 10 AM, now 9 AM.", "Has the meeting started?");
+```
+
+Проверено на `Jev-Style-v2-Calibrated-BF16.gguf`: choice `positive 0.997`,
+bool возвращает корректный ответ, score — ожидаемый балл.
+
+### Jev-Omni (decision-head)
+
+Jev-Omni — не генератор и не Jev-Style: сервер поднимается с `--embedding --pooling none`,
+берётся последний hidden-вектор (3840), и к нему применяется отдельная FP32-голова
+`decision-head-f32.npz`. Класс `NyaAI.Jev.JevOmniDecisionModel` делает это сам
+(читает `.npz` встроенным парсером, HTTP — через `LlamaServerClient`):
+
+```csharp
+var omni = new JevOmniDecisionModel(client, @"F:\AI\Jev\decision-head-f32.npz");
+var r = await omni.DecideAsync(new DecisionRequest
+{
+    State = "The meeting starts at 10 AM. It is now 9 AM.",
+    Question = "Has the meeting started?",
+    Options = new[] { "yes", "no" },
+    Kind = DecisionKind.Bool
+});
+Console.WriteLine($"{r.Best.Option} yes={r.YesProbability:0.000}");
+```
+
+Запуск сервера — профиль «Jev-Omni Q4_K_M (decision)» в лаунчере (галочка «Эмбеддинги»).
+Проверено на `Jev-Omni-Unified-Q4_K_M.gguf`: bool/choice/score работают.
+
+> Медиа (изображение/аудио/видео) в Jev-Omni идёт через `DecisionRequest.Media`
+> (`DecisionMedia.Image/Audio/VideoFrame`, байты уже в нужном формате). Для медиа
+> нужен mmproj `mmproj-jev-omni.gguf` — но **наша сборка llama.cpp (b9219) пока не
+> знает тип проектора `gemma4uv`**, поэтому текстовый режим работает без `--mmproj`,
+> а для медиа потребуется более свежая сборка llama.cpp. Конвертацию аудио/видео
+> (ffmpeg не установлен) выполняет вызывающая сторона.
+
+### Генерация текста (обычные LLM)
+
+```csharp
+using NyaAI.Generation;
+using NyaAI.Llama;
+
+using var client = new LlamaServerClient(new LlamaServerOptions
+{
+    BaseUrl = "http://127.0.0.1:8001",
+    ApiKey  = "+ynqf5MKHHKQ#aFm+T7JK@0xg4BN7^4%QyLNVGB%fJQ=",
+    Model   = "local/qwen2.5-coder-14b"
+});
+var llm = new LlamaTextGenerator(client);
+
+// чат с ролями
+var chat = await llm.ChatAsync(new[]
+{
+    ChatMessage.System("Отвечай кратко."),
+    ChatMessage.User("Что такое мьютекс?")
+});
+
+// чистый completion
+var raw = await llm.GenerateAsync("The capital of France is", new GenerationOptions { MaxTokens = 16 });
+
+// потоковая выдача
+await foreach (var tok in llm.ChatStreamAsync(new[] { ChatMessage.User("Считай до 5.") }))
+    Console.Write(tok);
+```
+
+Любую LLM можно использовать как decision-модель (для решений в обработке данных):
+
+```csharp
+var decider = new LlmDecisionModel(llm);   // промпт и разбор — LlmOptionPrompt
+var r = await decider.DecideAsync(new DecisionRequest
+{
+    State = "The film was excellent.",
+    Question = "Sentiment?",
+    Options = new[] { "negative", "positive" }
+});
+Console.WriteLine($"{r.Best.Option} {r.Best.Probability:0.00}"); // positive 0.99
+
+bool started = await decider.IsYesAsync("Meeting at 10 AM, now 9 AM.", "Has the meeting started?");
+```
+
+Проверено на Qwen2.5-Coder-14B: чат ~56 т/с, стриминг и «LLM как decision» работают.
+
+> Для чата у модели должен быть корректный чат-шаблон в GGUF (`--jinja`). Некоторые
+> completion-модели (например `deepseek-coder-6.7B-kexer`) без шаблона «продолжают
+> диалог» — для них используйте `GenerateAsync` либо задайте `--chat-template-file`.
+
+Подключить к своему проекту:
+
+```powershell
+dotnet add <проект> reference NyaAI\NyaAI.csproj
+```
+
+> Калиброванная температура для calibrated-GGUF — 1.0 (клиент использует
+> `temperature` только для шага генерации, нормировка идёт по логитам).
 
 ## Расширение
 

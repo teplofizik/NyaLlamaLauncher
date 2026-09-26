@@ -136,12 +136,11 @@ public sealed class AppConfig
             @"F:\AI\yuxinlu1\gemma-4-12B-coder-fable5-composer2.5-v1-GGUF\gemma4-coding-Q4_K_M.gguf", 32768, "f16");
 
         // Jev — decision-модели (заготовки, файлы ещё не скачаны)
-        var jevStyle = Llama("Jev-Style-2B Decision (Q8_0)", "jev-style-2b",
-            @"F:\AI\Jev\Jev-Style-v2-Calibrated-Q8_0.gguf", 4096, "f16");
-        var jevOmni = Llama("Jev-Omni Q4_K_M (мультимодал)", "jev-omni",
-            @"F:\AI\Jev\Jev-Omni-Unified-Q4_K_M.gguf", 8192, "f16");
-        jevOmni.MmprojPath = @"F:\AI\Jev\mmproj-jev-omni.gguf";
-        jevOmni.ExtraArgs = "--embedding --pooling none --no-warmup";
+        var jevStyle = Llama("Jev-Style-2B Decision (BF16)", "jev-style-2b",
+            @"F:\AI\Jev-Style-v2-Calibrated-BF16.gguf", 4096, "f16");
+        var jevOmni = Llama("Jev-Omni Q4_K_M (decision)", "jev-omni",
+            @"F:\AI\Jev-Omni-Unified-Q4_K_M.gguf", 8192, "f16");
+        jevOmni.Embedding = true; // текстовый режим; медиа требует mmproj gemma4uv (нужен свежий llama.cpp)
         var openJev = Llama("OpenJev-27B Q4_K_M", "openjev-27b",
             @"F:\AI\Jev\OpenJev-Q4_K_M.gguf", 16384, "q8_0");
 

@@ -85,6 +85,14 @@ public sealed class LlamaCppRunner : IModelRunner
             a.Add("--context-shift");
         }
 
+        if (c.Embedding)
+        {
+            a.Add("--embedding");
+            a.Add("--pooling");
+            a.Add("none");
+            a.Add("--no-warmup");
+        }
+
         a.Add("--metrics");
         a.Add("--timeout");
         a.Add("3600");
